@@ -1,0 +1,6 @@
+---
+- hosts: matchbox
+  user: maint
+  become: yes
+  roles:
+    - matchbox

@@ -1,0 +1,73 @@
+---
+
+- name: Install
+  copy:
+    src: files/matchbox-linux/matchbox
+    dest: /usr/bin/matchbox
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Set up User/Group
+  user:
+    name: matchbox
+
+- name: Make a assets folder
+  file:
+    path: /var/lib/matchbox/assets
+    state: directory
+    owner: matchbox
+    group: matchbox
+
+- name: Create get_coreos script
+  copy:
+    src: files/matchbox-linux/scripts/get-coreos
+    dest: /var/lib/matchbox/assets/get-coreos
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Create systemd service
+  copy:
+    src: files/matchbox-linux/contrib/systemd/matchbox.service
+    dest: /etc/systemd/system/matchbox.service
+    owner: root
+    group: root
+
+- name: Prepare TLS Certificates
+  copy:
+    src: files/matchbox-linux/scripts/tls
+    dest: ~/
+    directory_mode: yes
+    mode: 700
+
+- name: export SAN
+  debug:
+    msg: "SAN=DNS.1:{{ hostname }},IP.1:{{ ansible_host }}"
+
+- name: Generate TLS Certificates
+  shell: "SAN=DNS.1:{{ hostname }},IP.1:{{ ansible_host }} ./cert-gen"
+  args:
+    chdir: ~/tls
+    creates: ~/tls/client.key
+
+- name: Creates /etc/matchbox
+  file:
+    path: /etc/matchbox
+    state: directory
+
+- name: Set server files
+  copy:
+    src: "~/tls/{{ item }}"
+    dest: "/etc/matchbox/{{ item }}"
+    remote_src: yes
+  with_items:
+    - ca.crt
+    - server.crt
+    - server.key
+
+- name: Start matchbox
+  systemd:
+    name: matchbox
+    state: started
+    enabled: yes
